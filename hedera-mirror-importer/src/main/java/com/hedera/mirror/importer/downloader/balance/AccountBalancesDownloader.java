@@ -20,11 +20,12 @@ package com.hedera.mirror.importer.downloader.balance;
  * ‍
  */
 
+import com.hedera.mirror.importer.downloader.client.FileClientWithProperties;
+
 import io.micrometer.core.instrument.MeterRegistry;
 import javax.inject.Named;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.scheduling.annotation.Scheduled;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 import com.hedera.mirror.importer.addressbook.AddressBookService;
 import com.hedera.mirror.importer.config.MirrorDateRangePropertiesProcessor;
@@ -41,13 +42,13 @@ import com.hedera.mirror.importer.reader.signature.SignatureFileReader;
 public class AccountBalancesDownloader extends Downloader<AccountBalanceFile> {
 
     public AccountBalancesDownloader(
-            S3AsyncClient s3Client, AddressBookService addressBookService,
+            FileClientWithProperties.Builder fileClientBuilder, AddressBookService addressBookService,
             BalanceDownloaderProperties downloaderProperties,
             MeterRegistry meterRegistry, NodeSignatureVerifier nodeSignatureVerifier,
             SignatureFileReader signatureFileReader, BalanceFileReader balanceFileReader,
             StreamFileNotifier streamFileNotifier,
             MirrorDateRangePropertiesProcessor mirrorDateRangePropertiesProcessor) {
-        super(s3Client, addressBookService, downloaderProperties,
+        super(fileClientBuilder.buildFor(downloaderProperties), addressBookService,
                 meterRegistry, nodeSignatureVerifier, signatureFileReader, balanceFileReader, streamFileNotifier,
                 mirrorDateRangePropertiesProcessor);
     }

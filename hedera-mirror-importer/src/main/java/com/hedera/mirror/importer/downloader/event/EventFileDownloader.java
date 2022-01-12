@@ -20,10 +20,11 @@ package com.hedera.mirror.importer.downloader.event;
  * ‍
  */
 
+import com.hedera.mirror.importer.downloader.client.FileClientWithProperties;
+
 import io.micrometer.core.instrument.MeterRegistry;
 import javax.inject.Named;
 import org.springframework.scheduling.annotation.Scheduled;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 import com.hedera.mirror.importer.addressbook.AddressBookService;
 import com.hedera.mirror.importer.config.MirrorDateRangePropertiesProcessor;
@@ -39,13 +40,14 @@ import com.hedera.mirror.importer.reader.signature.SignatureFileReader;
 public class EventFileDownloader extends Downloader<EventFile> {
 
     public EventFileDownloader(
-            S3AsyncClient s3Client, AddressBookService addressBookService,
+            FileClientWithProperties.Builder fileClientBuilder, AddressBookService addressBookService,
             EventDownloaderProperties downloaderProperties,
             MeterRegistry meterRegistry, EventFileReader eventFileReader,
             NodeSignatureVerifier nodeSignatureVerifier, SignatureFileReader signatureFileReader,
             StreamFileNotifier streamFileNotifier,
             MirrorDateRangePropertiesProcessor mirrorDateRangePropertiesProcessor) {
-        super(s3Client, addressBookService, downloaderProperties, meterRegistry,
+        super(fileClientBuilder.buildFor(downloaderProperties),
+                addressBookService, meterRegistry,
                 nodeSignatureVerifier, signatureFileReader, eventFileReader, streamFileNotifier,
                 mirrorDateRangePropertiesProcessor);
     }

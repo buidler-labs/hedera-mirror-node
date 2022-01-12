@@ -22,6 +22,11 @@ package com.hedera.mirror.importer.config;
 
 import java.net.URI;
 import java.time.Duration;
+
+import com.hedera.mirror.importer.downloader.client.FileClientWithProperties;
+import com.hedera.mirror.importer.downloader.client.LocalFileClient;
+import com.hedera.mirror.importer.downloader.client.S3FileClient;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
@@ -68,8 +73,17 @@ public class CloudStorageConfiguration {
     }
 
     @Bean
+    @ConditionalOnProperty(prefix = "hedera.mirror.importer.downloader", name = "cloudProvider", havingValue = "FS")
+    public FileClientWithProperties.Builder localStorageClientBuilder() {
+        log.info("Configured to download from FileSystem having base-path '{}'",
+                downloaderProperties.getBucketName());
+
+        return new LocalFileClient.Builder();
+    }
+
+    @Bean
     @ConditionalOnProperty(prefix = "hedera.mirror.importer.downloader", name = "cloudProvider", havingValue = "GCP")
-    S3AsyncClient gcpCloudStorageClient() {
+    public FileClientWithProperties.Builder gcpCloudStorageClientBuilder() {
         log.info("Configured to download from GCP with bucket name '{}'", downloaderProperties.getBucketName());
         // Any valid region for aws client. Ignored by GCP.
         S3AsyncClientBuilder clientBuilder = asyncClientBuilder("us-east-1")
@@ -85,13 +99,13 @@ public class CloudStorageConfiguration {
                 }
             }));
         }
-        return clientBuilder.build();
+        return new S3FileClient.Builder(clientBuilder.build());
     }
 
     @Bean
     @ConditionalOnProperty(prefix = "hedera.mirror.importer.downloader", name = "cloudProvider", havingValue = "S3",
             matchIfMissing = true)
-    public S3AsyncClient s3CloudStorageClient() {
+    public FileClientWithProperties.Builder s3CloudStorageClientBuilder() {
         log.info("Configured to download from S3 in region {} with bucket name '{}'",
                 downloaderProperties.getRegion(), downloaderProperties.getBucketName());
         S3AsyncClientBuilder clientBuilder = asyncClientBuilder(
@@ -101,7 +115,7 @@ public class CloudStorageConfiguration {
             log.info("Overriding s3 client endpoint to {}", endpointOverride);
             clientBuilder.endpointOverride(URI.create(endpointOverride));
         }
-        return clientBuilder.build();
+        return new S3FileClient.Builder(clientBuilder.build());
     }
 
     private S3AsyncClientBuilder asyncClientBuilder(String region) {

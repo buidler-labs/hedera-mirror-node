@@ -51,7 +51,7 @@ class AccountBalancesDownloaderTest extends AbstractDownloaderTest {
     protected Downloader getDownloader() {
         BalanceFileReader balanceFileReader = new BalanceFileReaderImplV1(new BalanceParserProperties(),
                 new AccountBalanceLineParserV1(mirrorProperties));
-        return new AccountBalancesDownloader(s3AsyncClient, addressBookService,
+        return new AccountBalancesDownloader(fileClientBuilder, addressBookService,
                 (BalanceDownloaderProperties) downloaderProperties, meterRegistry, nodeSignatureVerifier,
                 signatureFileReader, balanceFileReader, streamFileNotifier, dateRangeProcessor);
     }
@@ -82,7 +82,7 @@ class AccountBalancesDownloaderTest extends AbstractDownloaderTest {
         // .csv_sig files are intentionally made empty so if two account balance files are processed, they must be
         // the .pb.gz files
         ProtoBalanceFileReader protoBalanceFileReader = new ProtoBalanceFileReader();
-        downloader = new AccountBalancesDownloader(s3AsyncClient, addressBookService,
+        downloader = new AccountBalancesDownloader(fileClientBuilder, addressBookService,
                 (BalanceDownloaderProperties) downloaderProperties, meterRegistry, nodeSignatureVerifier,
                 signatureFileReader, protoBalanceFileReader, streamFileNotifier, dateRangeProcessor);
         fileCopier = FileCopier.create(TestUtils.getResource("data").toPath(), s3Path)
