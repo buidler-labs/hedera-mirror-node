@@ -56,7 +56,7 @@ $ helm upgrade --install "${RELEASE}" charts/hedera-mirror --set postgresql.enab
 
 ### Non-Production Environments
 
-When running against a network other than a public network (e.g., demo, previewnet, testnet, or mainnet), the network
+When running against a network other than a public network (e.g., demo, previewnet, testnet, local or mainnet), the network
 must be updated with an initial address book file prior to deploying the chart.
 
 1. First acquire the address book file and encode its contents to Base64:

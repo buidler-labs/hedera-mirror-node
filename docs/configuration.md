@@ -51,8 +51,8 @@ value, it is recommended to only populate overridden properties in the custom `a
 | `hedera.mirror.importer.downloader.balance.threads`                  | 15                      | The number of threads to search for new files to download                                      |
 | `hedera.mirror.importer.downloader.balance.writeFiles`               | false                   | Whether to write verified stream files to the filesystem.                                      |
 | `hedera.mirror.importer.downloader.balance.writeSignatures`          | false                   | Whether to write verified signature files to the filesystem.                                   |
-| `hedera.mirror.importer.downloader.bucketName`                       |                         | The cloud storage bucket name to download streamed files. This value takes priority over network hardcoded bucket names regardless of `hedera.mirror.importer.network` value.|
-| `hedera.mirror.importer.downloader.cloudProvider`                    | S3                      | The cloud provider to download files from. Either `S3` or `GCP`                                |
+| `hedera.mirror.importer.downloader.bucketName`                       |                         | The cloud storage bucket name to download streamed files from (if `cloudProvider` is either `GCP` or `S3`) and the local root file-system path to look-up new network entrie on (if `cloudProvider` is `FS`). This value takes priority over network hardcoded bucket names regardless of `hedera.mirror.importer.network` value.|
+| `hedera.mirror.importer.downloader.cloudProvider`                    | S3                      | The cloud provider to download files from. Either `FS`, `S3` or `GCP`                                |
 | `hedera.mirror.importer.downloader.consensusRatio`                   | 0.333                   | The ratio of verified nodes (nodes used to come to consensus on the signature file hash) to total number of nodes available |
 | `hedera.mirror.importer.downloader.endpointOverride`                 |                         | Can be specified to download streams from a source other than S3 and GCP. Should be S3 compatible |
 | `hedera.mirror.importer.downloader.event.batchSize`                  | 100                     | The number of signature files to download per node before downloading the signed files         |
@@ -78,7 +78,7 @@ value, it is recommended to only populate overridden properties in the custom `a
 | `hedera.mirror.importer.endDate`                                     | 2262-04-11T23:47:16.854775807Z | The end date (inclusive) of the data to import. Items after this date will be ignored. Format: YYYY-MM-ddTHH:mm:ss.nnnnnnnnnZ |
 | `hedera.mirror.importer.importHistoricalAccountInfo`                 | true                    | Import historical account information that occurred before the last stream reset. Skipped if `startDate` is unset or after 2019-09-14T00:00:10Z. |
 | `hedera.mirror.importer.initialAddressBook`                          | ""                      | The path to the bootstrap address book used to override the built-in address book              |
-| `hedera.mirror.importer.network`                                     | DEMO                    | Which Hedera network to use. Can be either `DEMO`, `MAINNET`, `TESTNET`, `PREVIEWNET` or `OTHER` |
+| `hedera.mirror.importer.network`                                     | DEMO                    | Which Hedera network to use. Can be either `DEMO`, `LOCAL`, `MAINNET`, `TESTNET`, `PREVIEWNET` or `OTHER` |
 | `hedera.mirror.importer.parser.balance.batchSize`                    | 200000                  | The number of balances to store in memory before saving to the database                        |
 | `hedera.mirror.importer.parser.balance.enabled`                      | true                    | Whether to enable balance file parsing                                                         |
 | `hedera.mirror.importer.parser.balance.fileBufferSize`               | 200000                  | The size of the buffer to use when reading in the balance file                                 |
@@ -233,7 +233,7 @@ Name                                                            | Default    | D
 `hedera.mirror.monitor.mirrorNode.grpc.port`                    | 5600       | The port of the mirror node's gRPC API
 `hedera.mirror.monitor.mirrorNode.rest.host`                    | ""         | The hostname of the mirror node's REST API
 `hedera.mirror.monitor.mirrorNode.rest.port`                    | 443        | The port of the mirror node's REST API
-`hedera.mirror.monitor.network`                                 | TESTNET    | Which network to connect to. Automatically populates the main node & mirror node endpoints. Can be `MAINNET`, `PREVIEWNET`, `TESTNET` or `OTHER`
+`hedera.mirror.monitor.network`                                 | TESTNET    | Which network to connect to. Automatically populates the main node & mirror node endpoints. Can be `LOCAL`, `MAINNET`, `PREVIEWNET`, `TESTNET` or `OTHER`
 `hedera.mirror.monitor.nodes[].accountId`                       | ""         | The main node's account ID
 `hedera.mirror.monitor.nodes[].host`                            | ""         | The main node's hostname
 `hedera.mirror.monitor.nodes[].port`                            | 50211      | The main node's port
@@ -338,10 +338,10 @@ value, it is recommended to only populate overridden properties in the custom `a
 | `hedera.mirror.rest.stateproof.enabled`                  | false                   | Whether to enable stateproof REST API or not                                                   |
 | `hedera.mirror.rest.stateproof.streams.accessKey`        | ""                      | The cloud storage access key                                                                   |
 | `hedera.mirror.rest.stateproof.streams.bucketName`       |                         | The cloud storage bucket name to download streamed files. This value takes priority over network hardcoded bucket names regardless of `hedera.mirror.rest.stateproof.streams.network` |
-| `hedera.mirror.rest.stateproof.streams.cloudProvider`    | S3                      | The cloud provider to download files from. Either `S3` or `GCP`                                |
+| `hedera.mirror.rest.stateproof.streams.cloudProvider`    | S3                      | The cloud provider to download files from. Either `FS`, `S3` or `GCP`                                |
 | `hedera.mirror.rest.stateproof.streams.endpointOverride` |                         | Can be specified to download streams from a source other than S3 and GCP. Should be S3 compatible |
 | `hedera.mirror.rest.stateproof.streams.gcpProjectId`     |                         | GCP project id to bill for requests to GCS bucket which has Requester Pays enabled.            |
-| `hedera.mirror.rest.stateproof.streams.network`          | DEMO                    | Which Hedera network to use. Can be either `DEMO`, `MAINNET`, `TESTNET`, `PREVIEWNET` or `OTHER` |
+| `hedera.mirror.rest.stateproof.streams.network`          | DEMO                    | Which Hedera network to use. Can be either `DEMO`, `LOCAL`, `MAINNET`, `TESTNET`, `PREVIEWNET` or `OTHER` |
 | `hedera.mirror.rest.stateproof.streams.region`           | us-east-1               | The region associated with the bucket                                                          |
 | `hedera.mirror.rest.stateproof.streams.secretKey`        | ""                      | The cloud storage secret key                                                                   |
 
@@ -394,7 +394,7 @@ Name                                                    | Default               
 `hedera.mirror.rosetta.db.statementTimeout`             | 20                      | The number of seconds to wait before timing out a query statement
 `hedera.mirror.rosetta.db.username`                     | mirror_rosetta          | The username the processor uses to connect to the database
 `hedera.mirror.rosetta.log.level`                       | info                    | The log level
-`hedera.mirror.rosetta.network`                         | DEMO                    | Which Hedera network to use. Can be either `DEMO`, `MAINNET`, `PREVIEWNET`, `TESTNET` or `OTHER`
+`hedera.mirror.rosetta.network`                         | DEMO                    | Which Hedera network to use. Can be either `DEMO`, `LOCAL`, `MAINNET`, `PREVIEWNET`, `TESTNET` or `OTHER`
 `hedera.mirror.rosetta.nodes`                           | {}                      | A map of main nodes with its service endpoint as the key and the node account id as its value
 `hedera.mirror.rosetta.nodeVersion`                     | 0                       | The default canonical version of the node runtime
 `hedera.mirror.rosetta.online`                          | true                    | The default online mode of the Rosetta interface
