@@ -1,31 +1,45 @@
-package com.hedera.mirror.importer.downloader.client;
+package com.hedera.mirror.importer.downloader.client.s3;
 
-import com.hedera.mirror.importer.domain.StreamFilename;
-import com.hedera.mirror.importer.downloader.DownloaderProperties;
-import com.hedera.mirror.importer.downloader.PendingDownload;
+/*-
+ * ‌
+ * Hedera Mirror Node
+ * ​
+ * Copyright (C) 2019 - 2021 Hedera Hashgraph, LLC
+ * ​
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * ‍
+ */
 
-import com.hedera.mirror.importer.exception.InvalidStreamFileException;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+
+import com.hedera.mirror.importer.downloader.client.FileClientWithProperties;
 
 import lombok.RequiredArgsConstructor;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import lombok.extern.log4j.Log4j2;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 import software.amazon.awssdk.services.s3.model.S3Object;
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
-import static com.hedera.mirror.importer.domain.StreamFilename.FileType.SIGNATURE;
-import static java.util.stream.Collectors.groupingBy;
-import static java.util.stream.Collectors.maxBy;
+import com.hedera.mirror.importer.domain.StreamFilename;
+import com.hedera.mirror.importer.downloader.DownloaderProperties;
+import com.hedera.mirror.importer.downloader.client.PendingDownload;
 
+@Log4j2
 public class S3FileClient extends FileClientWithProperties {
     @RequiredArgsConstructor
     public static class Builder implements FileClientWithProperties.Builder {
@@ -37,35 +51,11 @@ public class S3FileClient extends FileClientWithProperties {
         }
     }
 
-    protected final Logger log = LogManager.getLogger(getClass());
     private final S3AsyncClient s3Client;
 
     protected S3FileClient(DownloaderProperties downloaderProperties, S3AsyncClient s3Client) {
         super(downloaderProperties);
         this.s3Client = s3Client;
-    }
-
-    @Override
-    public List<PendingDownload> download(String nodeAccountId, List<String> filePaths) {
-        // group the signature filenames by its instant
-        Map<Instant, Optional<StreamFilename>> signatureFilenamesByInstant = filePaths.stream()
-                .map(filePath -> filePath.substring(filePath.lastIndexOf('/') + 1))
-                .map(filename -> {
-                    try {
-                        return new StreamFilename(filename);
-                    } catch (InvalidStreamFileException e) {
-                        log.error(e);
-                        return null;
-                    }
-                })
-                .filter(s -> s != null && s.getFileType() == SIGNATURE)
-                .collect(groupingBy(StreamFilename::getInstant, maxBy(StreamFilename.EXTENSION_COMPARATOR)));
-
-        return signatureFilenamesByInstant.values()
-                .stream()
-                .filter(Optional::isPresent)
-                .map(s -> download(nodeAccountId, s.get()))
-                .collect(Collectors.toList());
     }
 
     @Override
@@ -77,7 +67,7 @@ public class S3FileClient extends FileClientWithProperties {
                 .requestPayer(RequestPayer.REQUESTER)
                 .build();
         var future = s3Client.getObject(request, AsyncResponseTransformer.toBytes());
-        return new PendingDownload(future, streamFile, s3Key);
+        return new S3PendingDownload(future, streamFile, s3Key);
     }
 
     @Override

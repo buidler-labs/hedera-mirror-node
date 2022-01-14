@@ -28,7 +28,9 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.TreeMultimap;
 
 import com.hedera.mirror.importer.downloader.client.FileClientWithProperties;
-import com.hedera.mirror.importer.downloader.client.FileClient;
+import com.hedera.mirror.importer.downloader.client.MultiFileClient;
+
+import com.hedera.mirror.importer.downloader.client.PendingDownload;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -72,7 +74,7 @@ public abstract class Downloader<T extends StreamFile> {
     public static final String STREAM_CLOSE_LATENCY_METRIC_NAME = "hedera.mirror.stream.close.latency";
 
     protected final Logger log = LogManager.getLogger(getClass());
-    private final FileClient fileClient;
+    private final MultiFileClient fileClient;
     private final AddressBookService addressBookService;
     private final ExecutorService signatureDownloadThreadPool; // One per node during the signature download process
     protected final DownloaderProperties downloaderProperties;
@@ -199,7 +201,7 @@ public abstract class Downloader<T extends StreamFile> {
 
                 try {
                     List<String> filePaths = fileClient.list(nodeAccountIdStr, startAfterFilename);
-                    List<PendingDownload> pendingDownloads = fileClient.download(nodeAccountIdStr, filePaths);
+                    List<PendingDownload> pendingDownloads = fileClient.downloadSignatureFiles(nodeAccountIdStr, filePaths);
                     AtomicInteger count = new AtomicInteger();
                     pendingDownloads.forEach(pendingDownload -> {
                         try {
@@ -210,11 +212,11 @@ public abstract class Downloader<T extends StreamFile> {
                                         totalDownloads.incrementAndGet();
                                     });
                         } catch (InterruptedException ex) {
-                            log.warn("Failed downloading {} in {}", pendingDownload.getS3key(),
+                            log.warn("Failed downloading {} in {}", pendingDownload.getRemotePath(),
                                     pendingDownload.getStopwatch(), ex);
                             Thread.currentThread().interrupt();
                         } catch (Exception ex) {
-                            log.warn("Failed to parse signature file {}: {}", pendingDownload.getS3key(), ex);
+                            log.warn("Failed to parse signature file {}: {}", pendingDownload.getRemotePath(), ex);
                         }
                     });
 
@@ -244,7 +246,7 @@ public abstract class Downloader<T extends StreamFile> {
     }
 
     private Optional<FileStreamSignature> parseSignatureFile(PendingDownload pendingDownload, EntityId nodeAccountId) throws InterruptedException, ExecutionException {
-        String s3Key = pendingDownload.getS3key();
+        String s3Key = pendingDownload.getRemotePath();
         Stopwatch stopwatch = pendingDownload.getStopwatch();
 
         if (!pendingDownload.waitForCompletion()) {
@@ -252,8 +254,8 @@ public abstract class Downloader<T extends StreamFile> {
             return Optional.empty();
         }
 
-        StreamFilename streamFilename = pendingDownload.getStreamFilename();
-        StreamFileData streamFileData = new StreamFileData(streamFilename, pendingDownload.getBytes());
+        StreamFilename streamFilename = pendingDownload.getLocalFilename();
+        StreamFileData streamFileData = new StreamFileData(streamFilename, pendingDownload.getResult().getBytes());
         FileStreamSignature fileStreamSignature = signatureFileReader.read(streamFileData);
         fileStreamSignature.setNodeAccountId(nodeAccountId);
         fileStreamSignature.setStreamType(streamType);
@@ -331,8 +333,8 @@ public abstract class Downloader<T extends StreamFile> {
                         continue;
                     }
 
-                    StreamFilename dataFilename = pendingDownload.getStreamFilename();
-                    StreamFileData streamFileData = new StreamFileData(dataFilename, pendingDownload.getBytes());
+                    StreamFilename dataFilename = pendingDownload.getLocalFilename();
+                    StreamFileData streamFileData = new StreamFileData(dataFilename, pendingDownload.getResult().getBytes());
                     T streamFile = streamFileReader.read(streamFileData);
                     streamFile.setNodeAccountId(signature.getNodeAccountId());
 
@@ -402,7 +404,7 @@ public abstract class Downloader<T extends StreamFile> {
                     long latency = streamFile.getConsensusStart() - last.getConsensusStart();
                     streamCloseMetric.record(latency, TimeUnit.NANOSECONDS);
                 });
-        Instant cloudStorageTime = pendingDownload.getObjectResponse().lastModified();
+        Instant cloudStorageTime = pendingDownload.getResult().getLastModified();
         Instant consensusEnd = Instant.ofEpochSecond(0, streamFile.getConsensusEnd());
         cloudStorageLatencyMetric.record(Duration.between(consensusEnd, cloudStorageTime));
         downloadLatencyMetric.record(Duration.between(consensusEnd, Instant.now()));

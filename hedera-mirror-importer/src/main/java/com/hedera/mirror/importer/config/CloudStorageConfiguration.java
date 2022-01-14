@@ -24,8 +24,8 @@ import java.net.URI;
 import java.time.Duration;
 
 import com.hedera.mirror.importer.downloader.client.FileClientWithProperties;
-import com.hedera.mirror.importer.downloader.client.LocalFileClient;
-import com.hedera.mirror.importer.downloader.client.S3FileClient;
+import com.hedera.mirror.importer.downloader.client.local.LocalFileClient;
+import com.hedera.mirror.importer.downloader.client.s3.S3FileClient;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
