@@ -23,10 +23,12 @@
 const _ = require('lodash');
 const math = require('mathjs');
 const pgformat = require('pg-format');
-const testUtils = require('./testutils');
+
+const base32 = require('../base32');
 const config = require('../config');
-const EntityId = require('../entityId');
 const constants = require('../constants');
+const EntityId = require('../entityId');
+const testUtils = require('./testutils');
 
 const NETWORK_FEE = 1;
 const NODE_FEE = 2;
@@ -238,45 +240,33 @@ const loadTopicMessages = async (messages) => {
 };
 
 const addEntity = async (defaults, entity) => {
-  entity = {
+  const localDefaults = {
+    alias: null,
     auto_renew_period: null,
     deleted: false,
     expiration_timestamp: null,
+    id: null,
     key: null,
     max_automatic_token_associations: null,
     memo: 'entity memo',
+    num: 0,
     public_key: null,
     realm: 0,
     receiver_sig_required: false,
     shard: 0,
     timestamp_range: '[0,)',
     type: constants.entityTypes.ACCOUNT,
+  };
+  const insertFields = Object.keys(localDefaults);
+  entity = {
+    ...localDefaults,
     ...defaults,
     ...entity,
   };
+  entity.id = EntityId.of(BigInt(entity.shard), BigInt(entity.realm), BigInt(entity.num)).getEncodedId();
+  entity.alias = base32.decode(entity.alias);
 
-  await sqlConnection.query(
-    `INSERT INTO entity (id, type, shard, realm, num, expiration_timestamp, deleted, public_key,
-                         auto_renew_period, key, max_automatic_token_associations, memo, receiver_sig_required,
-                         timestamp_range)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);`,
-    [
-      EntityId.of(BigInt(entity.shard), BigInt(entity.realm), BigInt(entity.num)).getEncodedId(),
-      entity.type,
-      entity.shard,
-      entity.realm,
-      entity.num,
-      entity.expiration_timestamp,
-      entity.deleted,
-      entity.public_key,
-      entity.auto_renew_period,
-      entity.key,
-      entity.max_automatic_token_associations,
-      entity.memo,
-      entity.receiver_sig_required,
-      entity.timestamp_range,
-    ]
-  );
+  await insertDomainObject('entity', insertFields, entity);
 };
 
 const addFileData = async (fileData) => {
@@ -705,26 +695,27 @@ const addCryptoTransaction = async (cryptoTransfer) => {
 };
 
 const addTopicMessage = async (message) => {
+  const insertFields = [
+    'consensus_timestamp',
+    'topic_id',
+    'message',
+    'payer_account_id',
+    'running_hash',
+    'sequence_number',
+    'running_hash_version',
+  ];
+
+  const table = 'topic_message';
+
   message = {
     message: 'message', // Base64 encoding: bWVzc2FnZQ==
+    payer_account_id: 3,
     running_hash: 'running_hash', // Base64 encoding: cnVubmluZ19oYXNo
     running_hash_version: 2,
     ...message,
   };
 
-  await sqlConnection.query(
-    `INSERT INTO topic_message (consensus_timestamp, topic_id, message, running_hash, sequence_number,
-                                running_hash_version)
-     VALUES ($1, $2, $3, $4, $5, $6);`,
-    [
-      message.timestamp,
-      message.topic_id,
-      message.message,
-      message.running_hash,
-      message.seq_num,
-      message.running_hash_version,
-    ]
-  );
+  await insertDomainObject(table, insertFields, message);
 };
 
 const addSchedule = async (schedule) => {
