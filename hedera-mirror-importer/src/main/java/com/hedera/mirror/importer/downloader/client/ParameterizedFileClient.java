@@ -32,8 +32,8 @@ import com.hedera.mirror.importer.downloader.DownloaderProperties;
 @Getter
 @Log4j2
 @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
-public abstract class FileClientWithProperties extends MultiFileClient {
-    public interface Builder extends FileClient.Builder<DownloaderProperties, FileClientWithProperties> { }
+public abstract class ParameterizedFileClient extends MultiFileClient {
+    public interface Builder extends FileClient.Builder<DownloaderProperties, ParameterizedFileClient> { }
 
     private final DownloaderProperties downloaderProperties;
 

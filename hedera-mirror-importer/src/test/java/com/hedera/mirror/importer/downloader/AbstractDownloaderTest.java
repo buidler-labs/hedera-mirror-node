@@ -28,7 +28,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.hedera.mirror.common.util.DomainUtils;
-import com.hedera.mirror.importer.downloader.client.FileClientWithProperties;
+import com.hedera.mirror.importer.downloader.client.ParameterizedFileClient;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.logging.LoggingMeterRegistry;
@@ -115,7 +115,7 @@ public abstract class AbstractDownloaderTest {
     protected FileCopier fileCopier;
     protected CommonDownloaderProperties commonDownloaderProperties;
     protected MirrorProperties mirrorProperties;
-    protected FileClientWithProperties.Builder fileClientBuilder;
+    protected ParameterizedFileClient.Builder fileClientBuilder;
     protected DownloaderProperties downloaderProperties;
     protected Downloader downloader;
     protected MeterRegistry meterRegistry = new LoggingMeterRegistry();

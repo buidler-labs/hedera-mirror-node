@@ -23,7 +23,7 @@ package com.hedera.mirror.importer.config;
 import java.net.URI;
 import java.time.Duration;
 
-import com.hedera.mirror.importer.downloader.client.FileClientWithProperties;
+import com.hedera.mirror.importer.downloader.client.ParameterizedFileClient;
 import com.hedera.mirror.importer.downloader.client.local.LocalFileClient;
 import com.hedera.mirror.importer.downloader.client.s3.S3FileClient;
 
@@ -74,7 +74,7 @@ public class CloudStorageConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "hedera.mirror.importer.downloader", name = "cloudProvider", havingValue = "FS")
-    public FileClientWithProperties.Builder localStorageClientBuilder() {
+    public ParameterizedFileClient.Builder localStorageClientBuilder() {
         log.info("Configured to download from FileSystem having base-path '{}'",
                 downloaderProperties.getBucketName());
 
@@ -83,7 +83,7 @@ public class CloudStorageConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "hedera.mirror.importer.downloader", name = "cloudProvider", havingValue = "GCP")
-    public FileClientWithProperties.Builder gcpCloudStorageClientBuilder() {
+    public ParameterizedFileClient.Builder gcpCloudStorageClientBuilder() {
         log.info("Configured to download from GCP with bucket name '{}'", downloaderProperties.getBucketName());
         // Any valid region for aws client. Ignored by GCP.
         S3AsyncClientBuilder clientBuilder = asyncClientBuilder("us-east-1")
@@ -105,7 +105,7 @@ public class CloudStorageConfiguration {
     @Bean
     @ConditionalOnProperty(prefix = "hedera.mirror.importer.downloader", name = "cloudProvider", havingValue = "S3",
             matchIfMissing = true)
-    public FileClientWithProperties.Builder s3CloudStorageClientBuilder() {
+    public ParameterizedFileClient.Builder s3CloudStorageClientBuilder() {
         log.info("Configured to download from S3 in region {} with bucket name '{}'",
                 downloaderProperties.getRegion(), downloaderProperties.getBucketName());
         S3AsyncClientBuilder clientBuilder = asyncClientBuilder(

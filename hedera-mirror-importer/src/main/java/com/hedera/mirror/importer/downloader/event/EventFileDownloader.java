@@ -20,7 +20,7 @@ package com.hedera.mirror.importer.downloader.event;
  * ‍
  */
 
-import com.hedera.mirror.importer.downloader.client.FileClientWithProperties;
+import com.hedera.mirror.importer.downloader.client.ParameterizedFileClient;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import javax.inject.Named;
@@ -40,7 +40,7 @@ import com.hedera.mirror.importer.reader.signature.SignatureFileReader;
 public class EventFileDownloader extends Downloader<EventFile> {
 
     public EventFileDownloader(
-            FileClientWithProperties.Builder fileClientBuilder, AddressBookService addressBookService,
+            ParameterizedFileClient.Builder fileClientBuilder, AddressBookService addressBookService,
             EventDownloaderProperties downloaderProperties,
             MeterRegistry meterRegistry, EventFileReader eventFileReader,
             NodeSignatureVerifier nodeSignatureVerifier, SignatureFileReader signatureFileReader,

@@ -33,7 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-import com.hedera.mirror.importer.downloader.client.FileClientWithProperties;
+import com.hedera.mirror.importer.downloader.client.ParameterizedFileClient;
 
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -45,11 +45,11 @@ import com.hedera.mirror.importer.downloader.DownloaderProperties;
 import com.hedera.mirror.importer.downloader.client.PendingDownload;
 
 @Log4j2
-public class LocalFileClient extends FileClientWithProperties {
+public class LocalFileClient extends ParameterizedFileClient {
     @RequiredArgsConstructor
-    public static class Builder implements FileClientWithProperties.Builder {
+    public static class Builder implements ParameterizedFileClient.Builder {
         @Override
-        public FileClientWithProperties buildFor(DownloaderProperties downloaderProperties) {
+        public ParameterizedFileClient buildFor(DownloaderProperties downloaderProperties) {
             return new LocalFileClient(downloaderProperties);
         }
     }

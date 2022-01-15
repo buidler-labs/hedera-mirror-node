@@ -27,7 +27,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.TreeMultimap;
 
-import com.hedera.mirror.importer.downloader.client.FileClientWithProperties;
+import com.hedera.mirror.importer.downloader.client.ParameterizedFileClient;
 import com.hedera.mirror.importer.downloader.client.MultiFileClient;
 
 import com.hedera.mirror.importer.downloader.client.PendingDownload;
@@ -95,7 +95,7 @@ public abstract class Downloader<T extends StreamFile> {
     private final Timer streamCloseMetric;
     private final Timer.Builder streamVerificationMetric;
 
-    protected Downloader(FileClientWithProperties fileClient,
+    protected Downloader(ParameterizedFileClient fileClient,
                          AddressBookService addressBookService,
                          MeterRegistry meterRegistry, NodeSignatureVerifier nodeSignatureVerifier,
                          SignatureFileReader signatureFileReader, StreamFileReader<T, ?> streamFileReader,

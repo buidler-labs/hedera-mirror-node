@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
-import com.hedera.mirror.importer.downloader.client.FileClientWithProperties;
+import com.hedera.mirror.importer.downloader.client.ParameterizedFileClient;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -40,13 +40,13 @@ import com.hedera.mirror.importer.downloader.DownloaderProperties;
 import com.hedera.mirror.importer.downloader.client.PendingDownload;
 
 @Log4j2
-public class S3FileClient extends FileClientWithProperties {
+public class S3FileClient extends ParameterizedFileClient {
     @RequiredArgsConstructor
-    public static class Builder implements FileClientWithProperties.Builder {
+    public static class Builder implements ParameterizedFileClient.Builder {
         private final S3AsyncClient s3Client;
 
         @Override
-        public FileClientWithProperties buildFor(DownloaderProperties downloaderProperties) {
+        public ParameterizedFileClient buildFor(DownloaderProperties downloaderProperties) {
             return new S3FileClient(downloaderProperties, s3Client);
         }
     }

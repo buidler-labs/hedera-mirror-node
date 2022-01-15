@@ -20,7 +20,7 @@ package com.hedera.mirror.importer.downloader.balance;
  * ‍
  */
 
-import com.hedera.mirror.importer.downloader.client.FileClientWithProperties;
+import com.hedera.mirror.importer.downloader.client.ParameterizedFileClient;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import javax.inject.Named;
@@ -42,7 +42,7 @@ import com.hedera.mirror.importer.reader.signature.SignatureFileReader;
 public class AccountBalancesDownloader extends Downloader<AccountBalanceFile> {
 
     public AccountBalancesDownloader(
-            FileClientWithProperties.Builder fileClientBuilder, AddressBookService addressBookService,
+            ParameterizedFileClient.Builder fileClientBuilder, AddressBookService addressBookService,
             BalanceDownloaderProperties downloaderProperties,
             MeterRegistry meterRegistry, NodeSignatureVerifier nodeSignatureVerifier,
             SignatureFileReader signatureFileReader, BalanceFileReader balanceFileReader,
