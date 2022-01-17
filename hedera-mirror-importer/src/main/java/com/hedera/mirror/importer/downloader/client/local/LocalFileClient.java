@@ -37,14 +37,12 @@ import com.hedera.mirror.importer.downloader.client.ParameterizedFileClient;
 
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
-import lombok.extern.log4j.Log4j2;
 
 import com.hedera.mirror.importer.domain.StreamFilename;
 import com.hedera.mirror.importer.downloader.client.DownloadResult;
 import com.hedera.mirror.importer.downloader.DownloaderProperties;
 import com.hedera.mirror.importer.downloader.client.PendingDownload;
 
-@Log4j2
 public class LocalFileClient extends ParameterizedFileClient {
     @RequiredArgsConstructor
     public static class Builder implements ParameterizedFileClient.Builder {

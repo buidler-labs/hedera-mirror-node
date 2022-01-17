@@ -29,13 +29,11 @@ import com.hedera.mirror.importer.downloader.client.DownloadResult;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 import com.hedera.mirror.importer.domain.StreamFilename;
 
-@Log4j2
 public class S3PendingDownload extends PendingDownload<ResponseBytes<GetObjectResponse>> {
     @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
     public static class S3DownloadResult implements DownloadResult {

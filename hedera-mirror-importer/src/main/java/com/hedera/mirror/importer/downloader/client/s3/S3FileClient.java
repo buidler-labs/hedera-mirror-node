@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 import com.hedera.mirror.importer.downloader.client.ParameterizedFileClient;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -39,7 +38,6 @@ import com.hedera.mirror.importer.domain.StreamFilename;
 import com.hedera.mirror.importer.downloader.DownloaderProperties;
 import com.hedera.mirror.importer.downloader.client.PendingDownload;
 
-@Log4j2
 public class S3FileClient extends ParameterizedFileClient {
     @RequiredArgsConstructor
     public static class Builder implements ParameterizedFileClient.Builder {

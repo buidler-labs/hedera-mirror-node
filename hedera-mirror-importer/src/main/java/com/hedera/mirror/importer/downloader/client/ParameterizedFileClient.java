@@ -25,12 +25,10 @@ import java.util.concurrent.ExecutionException;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
 
 import com.hedera.mirror.importer.downloader.DownloaderProperties;
 
 @Getter
-@Log4j2
 @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 public abstract class ParameterizedFileClient extends MultiFileClient {
     public interface Builder extends FileClient.Builder<DownloaderProperties, ParameterizedFileClient> { }
