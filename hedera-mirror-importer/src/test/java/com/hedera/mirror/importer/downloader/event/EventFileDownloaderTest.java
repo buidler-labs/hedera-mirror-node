@@ -49,7 +49,7 @@ class EventFileDownloaderTest extends AbstractLinkedStreamDownloaderTest {
 
     @Override
     protected Downloader getDownloader() {
-        return new EventFileDownloader(s3AsyncClient, addressBookService,
+        return new EventFileDownloader(fileClientBuilder, addressBookService,
                 (EventDownloaderProperties) downloaderProperties, meterRegistry,
                 new EventFileReaderV3(), nodeSignatureVerifier, signatureFileReader, streamFileNotifier,
                 dateRangeProcessor);

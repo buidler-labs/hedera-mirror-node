@@ -57,7 +57,7 @@ abstract class AbstractRecordFileDownloaderTest extends AbstractLinkedStreamDown
     protected Downloader getDownloader() {
         RecordFileReader recordFileReader = new CompositeRecordFileReader(new RecordFileReaderImplV1(),
                 new RecordFileReaderImplV2(), new RecordFileReaderImplV5());
-        return new RecordFileDownloader(s3AsyncClient, addressBookService,
+        return new RecordFileDownloader(fileClientBuilder, addressBookService,
                 (RecordDownloaderProperties) downloaderProperties, meterRegistry,
                 nodeSignatureVerifier, signatureFileReader, recordFileReader, streamFileNotifier, dateRangeProcessor);
     }

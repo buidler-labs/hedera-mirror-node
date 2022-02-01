@@ -137,9 +137,10 @@ properties:
   importer.config.hedera.mirror.importer.network:
     default: MAINNET
     type: string
-    description: Which Hedera network to use. Can be either DEMO (free), TESTNET or MAINNET.
+    description: Which Hedera network to use. Can be either DEMO (free), LOCAL (free), MAINNET, TESTNET, OTHER or PREVIEWNET.
     title: Importer Hedera network
     enum:
+      - LOCAL
       - MAINNET
       - TESTNET
       - PREVIEWNET

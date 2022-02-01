@@ -1,4 +1,4 @@
-package com.hedera.mirror.importer.downloader;
+package com.hedera.mirror.importer.downloader.client;
 
 /*-
  * ‌
@@ -23,11 +23,10 @@ package com.hedera.mirror.importer.downloader;
 import com.google.common.base.Stopwatch;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+
 import lombok.Value;
 import lombok.experimental.NonFinal;
 import lombok.extern.log4j.Log4j2;
-import software.amazon.awssdk.core.ResponseBytes;
-import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
 import com.hedera.mirror.importer.domain.StreamFilename;
 
@@ -36,55 +35,61 @@ import com.hedera.mirror.importer.domain.StreamFilename;
  * complete and get the status of whether it was successful or not.
  */
 @Log4j2
+@NonFinal
 @Value
-class PendingDownload {
+public abstract class PendingDownload<I> {
+    public static class SimpleResultForwarder extends PendingDownload<DownloadResult> {
+        public SimpleResultForwarder(CompletableFuture<DownloadResult> future, StreamFilename localFilename, String remotePath) {
+            super(future, localFilename, remotePath);
+        }
 
-    private final CompletableFuture<ResponseBytes<GetObjectResponse>> future;
-    private final StreamFilename streamFilename;
-    private final Stopwatch stopwatch;
-    private final String s3key;
+        @Override
+        protected DownloadResult mapResult(DownloadResult resolvedFuture) {
+            return resolvedFuture;
+        }
+    }
+
+    protected CompletableFuture<I> future;
+    StreamFilename localFilename;
+    String remotePath;
+    Stopwatch stopwatch = Stopwatch.createStarted();
 
     @NonFinal
-    private boolean alreadyWaited = false; // has waitForCompletion been called
+    boolean alreadyWaited = false; // has waitForCompletion been called
 
     @NonFinal
-    private boolean downloadSuccessful = false;
+    boolean downloadSuccessful = false;
 
-    PendingDownload(CompletableFuture<ResponseBytes<GetObjectResponse>> future, StreamFilename streamFilename,
-                    String s3key) {
+    protected PendingDownload(CompletableFuture<I> future, StreamFilename localFilename, String remotePath) {
         this.future = future;
-        stopwatch = Stopwatch.createStarted();
-        this.streamFilename = streamFilename;
-        this.s3key = s3key;
+        this.localFilename = localFilename;
+        this.remotePath = remotePath;
     }
 
-    byte[] getBytes() throws ExecutionException, InterruptedException {
-        return future.get().asByteArrayUnsafe();
+    public DownloadResult getResult() throws ExecutionException, InterruptedException {
+        return mapResult(this.future.get());
     }
-
-    GetObjectResponse getObjectResponse() throws ExecutionException, InterruptedException {
-        return future.get().response();
-    }
+    protected abstract DownloadResult mapResult(I resolvedFuture);
 
     /**
      * @return true if the download was successful.
      */
-    boolean waitForCompletion() throws InterruptedException {
+    public boolean waitForCompletion() throws InterruptedException {
         if (alreadyWaited) {
             return downloadSuccessful;
         }
         alreadyWaited = true;
         try {
             future.get();
-            log.debug("Finished downloading {} in {}", s3key, stopwatch);
+            log.debug("Finished downloading {} in {}", remotePath, stopwatch);
             downloadSuccessful = true;
         } catch (InterruptedException e) {
-            log.warn("Failed downloading {} after {}", s3key, stopwatch, e);
+            log.warn("Failed downloading {} after {}", remotePath, stopwatch, e);
             Thread.currentThread().interrupt();
         } catch (ExecutionException ex) {
-            log.warn("Failed downloading {} after {}: {}", s3key, stopwatch, ex.getMessage());
+            log.warn("Failed downloading {} after {}: {}", remotePath, stopwatch, ex.getMessage());
         } catch (Exception ex) {
-            log.warn("Failed downloading {} after {}", s3key, stopwatch, ex);
+            log.warn("Failed downloading {} after {}", remotePath, stopwatch, ex);
         }
         return downloadSuccessful;
     }

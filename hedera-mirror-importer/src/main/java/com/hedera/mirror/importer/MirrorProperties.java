@@ -71,6 +71,7 @@ public class MirrorProperties {
     @RequiredArgsConstructor
     public enum HederaNetwork {
         DEMO("hedera-demo-streams", true),
+        LOCAL("/opt/hedera/services/data", true),
         MAINNET("hedera-mainnet-streams", false),
         TESTNET("hedera-stable-testnet-streams-2020-08-27", false),
         PREVIEWNET("hedera-preview-testnet-streams", false),

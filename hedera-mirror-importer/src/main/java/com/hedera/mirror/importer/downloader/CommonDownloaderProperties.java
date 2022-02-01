@@ -83,6 +83,7 @@ public class CommonDownloaderProperties {
     @Getter
     @RequiredArgsConstructor
     public enum CloudProvider {
+        FS("file://"),
         S3("https://s3.amazonaws.com"),
         GCP("https://storage.googleapis.com");
 

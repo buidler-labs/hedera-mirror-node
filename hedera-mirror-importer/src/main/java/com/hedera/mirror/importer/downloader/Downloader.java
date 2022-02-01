@@ -21,14 +21,17 @@ package com.hedera.mirror.importer.downloader;
  */
 
 import static com.hedera.mirror.common.domain.DigestAlgorithm.SHA384;
-import static com.hedera.mirror.importer.domain.StreamFilename.FileType.SIGNATURE;
-import static java.util.stream.Collectors.groupingBy;
-import static java.util.stream.Collectors.maxBy;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.TreeMultimap;
+
+import com.hedera.mirror.importer.downloader.client.ParameterizedFileClient;
+import com.hedera.mirror.importer.downloader.client.MultiFileClient;
+
+import com.hedera.mirror.importer.downloader.client.PendingDownload;
+
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.nio.file.Path;
@@ -37,7 +40,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -48,15 +50,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import software.amazon.awssdk.core.async.AsyncResponseTransformer;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
-import software.amazon.awssdk.services.s3.model.RequestPayer;
-import software.amazon.awssdk.services.s3.model.S3Object;
 
 import com.hedera.mirror.importer.MirrorProperties;
 import com.hedera.mirror.importer.addressbook.AddressBookService;
@@ -69,7 +64,6 @@ import com.hedera.mirror.importer.domain.StreamFileData;
 import com.hedera.mirror.importer.domain.StreamFilename;
 import com.hedera.mirror.common.domain.StreamType;
 import com.hedera.mirror.importer.exception.HashMismatchException;
-import com.hedera.mirror.importer.exception.InvalidStreamFileException;
 import com.hedera.mirror.importer.exception.SignatureVerificationException;
 import com.hedera.mirror.importer.reader.StreamFileReader;
 import com.hedera.mirror.importer.reader.signature.SignatureFileReader;
@@ -80,12 +74,11 @@ public abstract class Downloader<T extends StreamFile> {
     public static final String STREAM_CLOSE_LATENCY_METRIC_NAME = "hedera.mirror.stream.close.latency";
 
     protected final Logger log = LogManager.getLogger(getClass());
-    private final S3AsyncClient s3Client;
+    private final MultiFileClient fileClient;
     private final AddressBookService addressBookService;
     private final ExecutorService signatureDownloadThreadPool; // One per node during the signature download process
     protected final DownloaderProperties downloaderProperties;
     private final MirrorProperties mirrorProperties;
-    private final CommonDownloaderProperties commonDownloaderProperties;
     protected final NodeSignatureVerifier nodeSignatureVerifier;
     protected final SignatureFileReader signatureFileReader;
     protected final StreamFileReader<T, ?> streamFileReader;
@@ -102,15 +95,15 @@ public abstract class Downloader<T extends StreamFile> {
     private final Timer streamCloseMetric;
     private final Timer.Builder streamVerificationMetric;
 
-    protected Downloader(S3AsyncClient s3Client,
-                         AddressBookService addressBookService, DownloaderProperties downloaderProperties,
+    protected Downloader(ParameterizedFileClient fileClient,
+                         AddressBookService addressBookService,
                          MeterRegistry meterRegistry, NodeSignatureVerifier nodeSignatureVerifier,
                          SignatureFileReader signatureFileReader, StreamFileReader<T, ?> streamFileReader,
                          StreamFileNotifier streamFileNotifier,
                          MirrorDateRangePropertiesProcessor mirrorDateRangePropertiesProcessor) {
-        this.s3Client = s3Client;
+        this.fileClient = fileClient;
         this.addressBookService = addressBookService;
-        this.downloaderProperties = downloaderProperties;
+        this.downloaderProperties = fileClient.getDownloaderProperties();
         this.meterRegistry = meterRegistry;
         this.nodeSignatureVerifier = nodeSignatureVerifier;
         signatureDownloadThreadPool = Executors.newFixedThreadPool(downloaderProperties.getThreads());
@@ -120,7 +113,6 @@ public abstract class Downloader<T extends StreamFile> {
         this.mirrorDateRangePropertiesProcessor = mirrorDateRangePropertiesProcessor;
         Runtime.getRuntime().addShutdownHook(new Thread(signatureDownloadThreadPool::shutdown));
         mirrorProperties = downloaderProperties.getMirrorProperties();
-        commonDownloaderProperties = downloaderProperties.getCommon();
 
         streamType = downloaderProperties.getStreamType();
 
@@ -208,8 +200,8 @@ public abstract class Downloader<T extends StreamFile> {
                 Stopwatch stopwatch = Stopwatch.createStarted();
 
                 try {
-                    List<S3Object> s3Objects = listFiles(startAfterFilename, nodeAccountIdStr);
-                    List<PendingDownload> pendingDownloads = downloadSignatureFiles(nodeAccountIdStr, s3Objects);
+                    List<String> filePaths = fileClient.list(nodeAccountIdStr, startAfterFilename);
+                    List<PendingDownload> pendingDownloads = fileClient.downloadSignatureFiles(nodeAccountIdStr, filePaths);
                     AtomicInteger count = new AtomicInteger();
                     pendingDownloads.forEach(pendingDownload -> {
                         try {
@@ -220,11 +212,11 @@ public abstract class Downloader<T extends StreamFile> {
                                         totalDownloads.incrementAndGet();
                                     });
                         } catch (InterruptedException ex) {
-                            log.warn("Failed downloading {} in {}", pendingDownload.getS3key(),
+                            log.warn("Failed downloading {} in {}", pendingDownload.getRemotePath(),
                                     pendingDownload.getStopwatch(), ex);
                             Thread.currentThread().interrupt();
                         } catch (Exception ex) {
-                            log.warn("Failed to parse signature file {}: {}", pendingDownload.getS3key(), ex);
+                            log.warn("Failed to parse signature file {}: {}", pendingDownload.getRemotePath(), ex);
                         }
                     });
 
@@ -253,49 +245,8 @@ public abstract class Downloader<T extends StreamFile> {
         return sigFilesMap;
     }
 
-    private List<S3Object> listFiles(String lastFilename, String nodeAccountId) throws ExecutionException,
-            InterruptedException {
-        // batchSize (number of items we plan do download in a single batch) times 2 for file + sig.
-        int listSize = (downloaderProperties.getBatchSize() * 2);
-        String s3Prefix = getS3Prefix(nodeAccountId);
-        // Not using ListObjectsV2Request because it does not work with GCP.
-        ListObjectsRequest listRequest = ListObjectsRequest.builder()
-                .bucket(commonDownloaderProperties.getBucketName())
-                .prefix(s3Prefix)
-                .delimiter("/")
-                .marker(s3Prefix + lastFilename)
-                .maxKeys(listSize)
-                .requestPayer(RequestPayer.REQUESTER)
-                .build();
-        return s3Client.listObjects(listRequest).get().contents();
-    }
-
-    private List<PendingDownload> downloadSignatureFiles(String nodeAccountId, List<S3Object> s3Objects) {
-        // group the signature filenames by its instant
-        Map<Instant, Optional<StreamFilename>> signatureFilenamesByInstant = s3Objects.stream()
-                .map(S3Object::key)
-                .map(key -> key.substring(key.lastIndexOf('/') + 1))
-                .map(filename -> {
-                    try {
-                        return new StreamFilename(filename);
-                    } catch (InvalidStreamFileException e) {
-                        log.error(e);
-                        return null;
-                    }
-                })
-                .filter(s -> s != null && s.getFileType() == SIGNATURE)
-                .collect(groupingBy(StreamFilename::getInstant, maxBy(StreamFilename.EXTENSION_COMPARATOR)));
-
-        String s3Prefix = getS3Prefix(nodeAccountId);
-        return signatureFilenamesByInstant.values()
-                .stream()
-                .filter(Optional::isPresent)
-                .map(s -> pendingDownload(s.get(), s3Prefix))
-                .collect(Collectors.toList());
-    }
-
     private Optional<FileStreamSignature> parseSignatureFile(PendingDownload pendingDownload, EntityId nodeAccountId) throws InterruptedException, ExecutionException {
-        String s3Key = pendingDownload.getS3key();
+        String s3Key = pendingDownload.getRemotePath();
         Stopwatch stopwatch = pendingDownload.getStopwatch();
 
         if (!pendingDownload.waitForCompletion()) {
@@ -303,8 +254,8 @@ public abstract class Downloader<T extends StreamFile> {
             return Optional.empty();
         }
 
-        StreamFilename streamFilename = pendingDownload.getStreamFilename();
-        StreamFileData streamFileData = new StreamFileData(streamFilename, pendingDownload.getBytes());
+        StreamFilename streamFilename = pendingDownload.getLocalFilename();
+        StreamFileData streamFileData = new StreamFileData(streamFilename, pendingDownload.getResult().getBytes());
         FileStreamSignature fileStreamSignature = signatureFileReader.read(streamFileData);
         fileStreamSignature.setNodeAccountId(nodeAccountId);
         fileStreamSignature.setStreamType(streamType);
@@ -330,25 +281,6 @@ public abstract class Downloader<T extends StreamFile> {
                 .map(StreamFilename::new)
                 .map(StreamFilename::getFilenameAfter)
                 .orElse("");
-    }
-
-    /**
-     * Returns a PendingDownload for which the caller can waitForCompletion() to wait for the download to complete. This
-     * either queues or begins the download (depending on the AWS TransferManager).
-     *
-     * @param streamFilename
-     * @param s3Prefix
-     * @return
-     */
-    private PendingDownload pendingDownload(StreamFilename streamFilename, String s3Prefix) {
-        String s3Key = s3Prefix + streamFilename.getFilename();
-        var request = GetObjectRequest.builder()
-                .bucket(commonDownloaderProperties.getBucketName())
-                .key(s3Key)
-                .requestPayer(RequestPayer.REQUESTER)
-                .build();
-        var future = s3Client.getObject(request, AsyncResponseTransformer.toBytes());
-        return new PendingDownload(future, streamFilename, s3Key);
     }
 
     /**
@@ -401,8 +333,8 @@ public abstract class Downloader<T extends StreamFile> {
                         continue;
                     }
 
-                    StreamFilename dataFilename = pendingDownload.getStreamFilename();
-                    StreamFileData streamFileData = new StreamFileData(dataFilename, pendingDownload.getBytes());
+                    StreamFilename dataFilename = pendingDownload.getLocalFilename();
+                    StreamFileData streamFileData = new StreamFileData(dataFilename, pendingDownload.getResult().getBytes());
                     T streamFile = streamFileReader.read(streamFileData);
                     streamFile.setNodeAccountId(signature.getNodeAccountId());
 
@@ -459,11 +391,7 @@ public abstract class Downloader<T extends StreamFile> {
     private PendingDownload downloadSignedDataFile(FileStreamSignature fileStreamSignature) {
         String filename = fileStreamSignature.getFilename().replace(StreamType.SIGNATURE_SUFFIX, "");
         String nodeAccountId = fileStreamSignature.getNodeAccountIdString();
-        return pendingDownload(new StreamFilename(filename), getS3Prefix(nodeAccountId));
-    }
-
-    private String getS3Prefix(String nodeAccountId) {
-        return downloaderProperties.getPrefix() + nodeAccountId + "/";
+        return fileClient.download(nodeAccountId, new StreamFilename(filename));
     }
 
     protected void onVerified(PendingDownload pendingDownload, T streamFile) throws ExecutionException,
@@ -476,7 +404,7 @@ public abstract class Downloader<T extends StreamFile> {
                     long latency = streamFile.getConsensusStart() - last.getConsensusStart();
                     streamCloseMetric.record(latency, TimeUnit.NANOSECONDS);
                 });
-        Instant cloudStorageTime = pendingDownload.getObjectResponse().lastModified();
+        Instant cloudStorageTime = pendingDownload.getResult().getLastModified();
         Instant consensusEnd = Instant.ofEpochSecond(0, streamFile.getConsensusEnd());
         cloudStorageLatencyMetric.record(Duration.between(consensusEnd, cloudStorageTime));
         downloadLatencyMetric.record(Duration.between(consensusEnd, Instant.now()));

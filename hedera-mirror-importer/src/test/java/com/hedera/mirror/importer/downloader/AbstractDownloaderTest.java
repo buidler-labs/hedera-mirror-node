@@ -28,6 +28,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.hedera.mirror.common.util.DomainUtils;
+import com.hedera.mirror.importer.downloader.client.ParameterizedFileClient;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.logging.LoggingMeterRegistry;
@@ -72,7 +73,6 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cglib.core.ReflectUtils;
 import org.springframework.util.ResourceUtils;
-import software.amazon.awssdk.services.s3.S3AsyncClient;
 
 import com.hedera.mirror.common.domain.StreamFile;
 import com.hedera.mirror.common.domain.StreamType;
@@ -115,7 +115,7 @@ public abstract class AbstractDownloaderTest {
     protected FileCopier fileCopier;
     protected CommonDownloaderProperties commonDownloaderProperties;
     protected MirrorProperties mirrorProperties;
-    protected S3AsyncClient s3AsyncClient;
+    protected ParameterizedFileClient.Builder fileClientBuilder;
     protected DownloaderProperties downloaderProperties;
     protected Downloader downloader;
     protected MeterRegistry meterRegistry = new LoggingMeterRegistry();
@@ -212,8 +212,8 @@ public abstract class AbstractDownloaderTest {
     protected void beforeEach() throws Exception {
         initProperties();
         commonDownloaderProperties.setAllowAnonymousAccess(true);
-        s3AsyncClient = new CloudStorageConfiguration(commonDownloaderProperties,
-                new MetricsExecutionInterceptor(meterRegistry)).s3CloudStorageClient();
+        fileClientBuilder = new CloudStorageConfiguration(commonDownloaderProperties,
+                new MetricsExecutionInterceptor(meterRegistry)).s3CloudStorageClientBuilder();
 
         signatureFileReader = new CompositeSignatureFileReader(new SignatureFileReaderV2(),
                 new SignatureFileReaderV5());
